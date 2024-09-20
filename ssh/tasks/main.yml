@@ -1,4 +1,4 @@
-- name: Harden SSH security and restrict login to specific users
+- name: Harden SSH security
   become: true
   block:
     - name: Install / Update openssh-server (Debian-based systems)
