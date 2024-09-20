@@ -1,0 +1,11 @@
+---
+
+- name: Configure UFW Firewall on Ubuntu
+  hosts: all
+  become: yes
+
+  vars_files:
+    - secret
+
+  roles:
+    - ufw

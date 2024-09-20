@@ -1,0 +1,103 @@
+- name: Harden SSH security and restrict login to specific users
+  become: true
+  block:
+    - name: Install / Update openssh-server (Debian-based systems)
+      ansible.builtin.package:
+        name: openssh-server
+        state: latest
+      when: ansible_os_family == 'Debian'
+
+    - name: Check SSH configuration syntax
+      command: sshd -t
+      register: sshd_config_check
+      ignore_errors: true
+
+    - name: Ensure SSH service is running
+      ansible.builtin.service:
+        name: ssh
+        state: started
+        enabled: yes
+      when: sshd_config_check.rc != 0
+
+
+    - name: Disable root login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin no'
+        state: present
+        backup: yes
+
+    - name: Disable password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        state: present
+        backup: yes
+
+    - name: Disable X11 forwarding
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?X11Forwarding'
+        line: 'X11Forwarding no'
+        state: present
+
+    - name: Set idle timeout interval
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?ClientAliveInterval'
+        line: 'ClientAliveInterval {{ ssh_alive_interval }}'
+        state: present
+
+    - name: Set maximum number of login attempts
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?MaxAuthTries'
+        line: 'MaxAuthTries {{ ssh_max_auth_tries }}'
+        state: present
+
+    - name: Ensure UFW is installed and enabled (Debian-based systems)
+      ansible.builtin.service:
+        name: ufw
+        state: started
+      when: ansible_os_family == 'Debian'
+
+    - name: Add firewall rule for new SSH port
+      ansible.builtin.ufw:
+        rule: allow
+        port: '{{ ssh_new_port }}'
+        proto: tcp
+
+    - name: Enable UFW if not already enabled
+      ansible.builtin.ufw:
+        state: enabled
+
+    - name: Change SSH port to {{ ssh_new_port }}
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?Port'
+        line: 'Port {{ ssh_new_port }}'
+        state: present
+    
+    - name: Check SSH configuration syntax
+      command: sshd -t
+      register: sshd_config_check_before_restart
+      ignore_errors: true
+
+    - name: Restart SSH service to apply changes
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
+      when: sshd_config_check_before_restart.rc == 0
+
+- name: Reconnect to server using new SSH port
+  become: true
+  local_action:
+    module: wait_for
+    host: "{{ inventory_hostname }}"
+    port: '{{ ssh_new_port }}'
+    delay: 10
+    timeout: 300
+    state: started
+

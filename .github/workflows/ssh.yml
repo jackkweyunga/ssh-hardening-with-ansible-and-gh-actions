@@ -1,0 +1,83 @@
+name: ssh hardening
+
+on:
+  workflow_dispatch:
+    inputs:
+      REMOTE_USER:
+        type: string
+        description: 'Remote User'
+        required: true
+      HOME_DIR:
+        type: string
+        description: 'Home Directory'
+        required: true
+      TARGET_HOST:
+        description: 'Target Host'
+        required: true
+      SSH_PORT:
+        description: 'SSH Port'
+        required: true
+
+      SSH_NEW_PORT:
+        description: 'SSH new Port'
+        required: true
+        default: "2222"
+      SSH_ALIVE_INTERVAL:
+        description: 'SSH Alive Interval'
+        required: true
+        default: "300"
+      SSH_MAX_AUTH_TRIES:
+        description: 'SSH Max Auth Tries'
+        required: true
+        default: "3"
+
+jobs:
+   ansible:
+    runs-on: ubuntu-latest
+    env:
+      SSH_NEW_PORT: "${{ inputs.SSH_NEW_PORT }}"
+      SSH_ALIVE_INTERVAL: "${{ inputs.SSH_ALIVE_INTERVAL }}"
+      SSH_MAX_AUTH_TRIES: "${{ inputs.SSH_MAX_AUTH_TRIES }}"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Add SSH Keys
+        run: |
+          cat << EOF > ansible/ssh-key
+          ${{ secrets.SSH_PRIVATE_KEY }}
+          EOF
+
+      - name: Update ssh private key permissions
+        run: |
+          chmod 400 ansible/ssh-key
+      - name: Install Ansible
+        run: |
+          pip install ansible
+
+      - name: Adding or Override Ansible inventory File
+        run: |
+          cat << EOF > ansible/inventory.ini
+          [servers]
+          ${{ inputs.TARGET_HOST }}
+          EOF
+
+      - name: Adding or Override Ansible Config File
+        run: |
+          cat << EOF > ./ansible/ansible.cfg
+          [defaults]
+          ansible_python_interpreter='/usr/bin/python3'
+          deprecation_warnings=False
+          inventory=./inventory.ini
+          remote_tmp="/tmp"
+          remote_user="${{ inputs.REMOTE_USER }}"
+          remote_port=${{ inputs.SSH_PORT }}
+          host_key_checking=False
+          private_key_file = ./ssh-key
+          retries=2
+          EOF
+
+      - name: Run main playbook
+        run: |
+          sh create-sudo-password-ansible-secret.sh "${{ secrets.SUDO_PASSWORD }}"
+          ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ssh.yml --vault-password-file=ansible/vault.txt

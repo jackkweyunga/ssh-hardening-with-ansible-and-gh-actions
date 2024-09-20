@@ -1,0 +1,65 @@
+---
+- name: Ensure UFW is installed
+  apt:
+    name: ufw
+    state: present
+
+- name: Set logging
+  community.general.ufw:
+    logging: 'on'
+
+- name: Limit SSH attempts
+  community.general.ufw:
+    rule: limit
+    port: 22
+    proto: tcp
+
+- name: Limit SSH attempts
+  community.general.ufw:
+    rule: limit
+    port: 2222
+    proto: tcp
+
+- name: Allow SSH
+  ufw:
+    rule: allow
+    port: 22
+    proto: tcp
+
+- name: Allow SSH
+  ufw:
+    rule: allow
+    port: 2222
+    proto: tcp
+
+- name: Allow HTTP
+  ufw:
+    rule: allow
+    port: 80
+    proto: tcp
+
+- name: Allow HTTPS
+  ufw:
+    rule: allow
+    port: 443
+    proto: tcp
+
+# - name: Allow custom port (e.g., 8080)
+#   ufw:
+#     rule: allow
+#     port: 8080
+#     proto: tcp
+
+- name: Set default incoming policy to deny
+  ufw:
+    default: deny
+    direction: incoming
+
+- name: Set default outgoing policy to allow
+  ufw:
+    default: allow
+    direction: outgoing
+
+- name: Enable UFW
+  ufw:
+    state: enabled

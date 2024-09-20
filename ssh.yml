@@ -1,0 +1,15 @@
+
+- name: SSH Hardening
+  hosts: all
+  become: yes
+
+  vars_files:
+    - secret
+
+  vars:
+    ssh_new_port: "{{ lookup('env', 'SSH_NEW_PORT') }}"
+    ssh_alive_interval: "{{ lookup('env', 'SSH_ALIVE_INTERVAL') }}"
+    ssh_max_auth_tries: "{{ lookup('env', 'SSH_MAX_AUTH_TRIES') }}"
+
+  roles:
+    - ssh
